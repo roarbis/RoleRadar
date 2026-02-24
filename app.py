@@ -31,6 +31,7 @@ from scrapers.gradconnection import GradConnectionScraper
 from scrapers.adzuna import AdzunaScraper
 from utils.emailer import send_job_digest
 from utils.resume_parser import parse_uploaded_file, save_upload_text, load_saved_text
+from utils.scraper_health import check_all_sources
 from utils.ai_provider import (
     build_provider,
     OllamaProvider,
@@ -199,6 +200,10 @@ if "job_scores" not in st.session_state:
     st.session_state["job_scores"] = _load_scores()
 if "ai_output" not in st.session_state:
     st.session_state["ai_output"] = None   # {"type": ..., "text": ..., "job_title": ...}
+if "source_health" not in st.session_state:
+    st.session_state["source_health"] = {}   # {source_name: health_dict}
+if "last_run_source_counts" not in st.session_state:
+    st.session_state["last_run_source_counts"] = {}  # {source_name: count}
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -628,6 +633,12 @@ if run_clicked and roles and selected_sources:
 
     progress.empty()
 
+    # Persist per-source counts so the status tracker can show them
+    st.session_state["last_run_source_counts"] = {
+        src: {"count": source_results.get(src, 0), "error": source_errors.get(src)}
+        for src in selected_sources
+    }
+
     # Summary
     working_totals = {k: v for k, v in source_results.items() if v > 0}
     summary_parts = [f"**{v}** from {k}" for k, v in working_totals.items()]
@@ -663,6 +674,73 @@ if send_email_clicked:
         st.success(f"✅ {message}")
     else:
         st.error(f"❌ {message}")
+
+# ---------------------------------------------------------------------------
+# Source Status Tracker
+# ---------------------------------------------------------------------------
+with st.expander("🔌 Source Status", expanded=False):
+    _health_col, _info_col = st.columns([1, 3])
+    with _health_col:
+        _check_btn = st.button("🔄 Check Now", use_container_width=True,
+                               help="Pings each job site to verify it is reachable from this server.")
+    with _info_col:
+        st.caption(
+            "Live connectivity check — confirms each site is reachable from the server "
+            "running RoleRadar. **Online ≠ scraper returning results** (a site can respond "
+            "to a homepage ping but still block automated searches by cloud IP)."
+        )
+
+    if _check_btn:
+        _sources_to_check = WORKING_SOURCES + (["Adzuna"] if adzuna_enabled else [])
+        with st.spinner(f"Checking {len(_sources_to_check)} sources in parallel…"):
+            st.session_state["source_health"] = check_all_sources(_sources_to_check)
+
+    _health = st.session_state.get("source_health", {})
+    _run_counts = st.session_state.get("last_run_source_counts", {})
+
+    if _health:
+        import pandas as pd
+
+        _hrows = []
+        for _src in WORKING_SOURCES + ["Adzuna"]:
+            _h = _health.get(_src)
+            if _h is None:
+                continue
+            _status_icon = "✅ Online" if _h["online"] else "❌ Offline"
+            _lat = f"{_h['latency_ms']} ms" if _h.get("latency_ms") else "—"
+            _code = str(_h["status_code"]) if _h.get("status_code") else "—"
+            _note = _h.get("note", "")
+
+            _rc = _run_counts.get(_src)
+            if _rc is not None:
+                if _rc.get("error"):
+                    _last = f"⚠️ error"
+                elif _rc["count"] == 0:
+                    _last = "0 jobs (blocked?)"
+                else:
+                    _last = f"✅ {_rc['count']} jobs"
+            else:
+                _last = "—"
+
+            _hrows.append({
+                "Source": _src,
+                "Status": _status_icon,
+                "Latency": _lat,
+                "HTTP": _code,
+                "Last Run": _last,
+                "Note": _note,
+            })
+
+        st.dataframe(
+            pd.DataFrame(_hrows),
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Note": st.column_config.TextColumn("Note", width="medium"),
+            },
+        )
+    else:
+        st.info("Click **🔄 Check Now** to ping all sources. Results from the last scrape run will also appear here automatically.")
 
 # ---------------------------------------------------------------------------
 # Results
