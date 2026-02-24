@@ -85,7 +85,14 @@ class SeekScraper(BaseScraper):
             logger.error(f"Seek: failed to parse JSON: {e}")
             return []
 
-        return self._parse_jobs(data.get("data", []))
+        # 'data' is the standard key; log top-level keys on miss so we can
+        # adapt quickly if Seek changes their API response structure.
+        job_list = data.get("data") or data.get("jobs") or data.get("results") or []
+        if not job_list:
+            logger.warning(
+                f"Seek: no jobs in response — top-level keys: {list(data.keys())[:10]}"
+            )
+        return self._parse_jobs(job_list)
 
     def _parse_jobs(self, job_list: list) -> list:
         jobs = []
@@ -95,7 +102,13 @@ class SeekScraper(BaseScraper):
                 if not title:
                     continue
 
-                job_id = item.get("id", "")
+                # Try multiple field names — Seek has used 'id', 'jobId', 'listingId'
+                job_id = (
+                    item.get("id")
+                    or item.get("jobId")
+                    or item.get("listingId")
+                    or ""
+                )
                 url = JOB_URL.format(id=job_id) if job_id else ""
 
                 # Company — prefer companyName, fall back to advertiser.description

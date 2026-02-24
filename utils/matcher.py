@@ -219,17 +219,27 @@ def filter_jobs(jobs: list, roles: List[str], match_type: str = "exact") -> list
     """
     Return only jobs whose title matches at least one of the given roles.
     Deduplicates: the same job is only included once even if it matches several roles.
+
+    IMPORTANT: only deduplicate on URL when the URL is non-empty.
+    Using an empty string as a dedup key causes all URL-less jobs to collapse to
+    a single result — we use title+company as a fallback key instead.
     """
-    seen_urls = set()
+    seen: set = set()
     filtered = []
 
     for job in jobs:
-        if job.url in seen_urls:
+        # Build a stable dedup key — prefer URL, fall back to title|company
+        dedup_key = (
+            job.url
+            if job.url
+            else f"{(job.title or '').lower().strip()}|{(job.company or '').lower().strip()}"
+        )
+        if dedup_key in seen:
             continue
         for role in roles:
             if matches_role(job.title, role, match_type):
                 filtered.append(job)
-                seen_urls.add(job.url)
+                seen.add(dedup_key)
                 break
 
     return filtered

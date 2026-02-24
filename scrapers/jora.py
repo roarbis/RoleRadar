@@ -14,6 +14,8 @@ from html import unescape
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 
+import requests as _requests
+
 try:
     import feedparser
     FEEDPARSER_AVAILABLE = True
@@ -27,6 +29,17 @@ except ImportError:
     CURL_CFFI_AVAILABLE = False
 
 from .base import BaseScraper, Job
+
+# Browser-like headers for the RSS request so Jora doesn't block feedparser.
+_RSS_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "en-AU,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +72,9 @@ class JoraScraper(BaseScraper):
         if FEEDPARSER_AVAILABLE:
             rss_url = f"{BASE_URL}/j?q={quote_plus(role)}&l={quote_plus(location)}&type=rss"
             try:
-                feed = feedparser.parse(rss_url)
+                # Fetch with browser headers — feedparser's default user-agent is blocked
+                resp = _requests.get(rss_url, headers=_RSS_HEADERS, timeout=20)
+                feed = feedparser.parse(resp.content)
                 if feed.entries:
                     logger.info(f"Jora RSS: {len(feed.entries)} entries for '{role}'")
                     return [j for j in (self._parse_rss_entry(e) for e in feed.entries) if j]

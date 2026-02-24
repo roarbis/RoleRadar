@@ -13,6 +13,8 @@ import time
 from html import unescape
 from urllib.parse import quote_plus
 
+import requests as _requests
+
 try:
     import feedparser
     FEEDPARSER_AVAILABLE = True
@@ -20,6 +22,18 @@ except ImportError:
     FEEDPARSER_AVAILABLE = False
 
 from .base import BaseScraper, Job
+
+# Browser-like headers for the RSS request.
+# feedparser's default "python-feedparser/X.Y" user-agent is blocked by Indeed.
+_RSS_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "en-AU,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -51,15 +65,22 @@ class IndeedScraper(BaseScraper):
         logger.info(f"Indeed RSS: {url}")
 
         try:
-            feed = feedparser.parse(url)
+            # Fetch with browser headers first — feedparser's default user-agent
+            # ("python-feedparser/X.Y") is blocked by Indeed.
+            resp = _requests.get(url, headers=_RSS_HEADERS, timeout=20)
+            feed = feedparser.parse(resp.content)
         except Exception as e:
-            logger.error(f"Indeed RSS parse failed: {e}")
-            return []
+            logger.warning(f"Indeed: browser-header fetch failed ({e}), retrying with feedparser")
+            try:
+                feed = feedparser.parse(url)
+            except Exception as e2:
+                logger.error(f"Indeed RSS parse failed: {e2}")
+                return []
 
         if not feed.entries:
             logger.warning(
                 f"Indeed: 0 RSS entries for '{role}' — "
-                "feed may be empty, rate-limited, or the location returned no results."
+                "may be rate-limited, blocked, or no results for this location."
             )
             return []
 
