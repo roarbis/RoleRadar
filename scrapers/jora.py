@@ -70,10 +70,16 @@ class JoraScraper(BaseScraper):
     def _search_role(self, role: str, location: str = "Australia") -> list:
         # ── 1. Try RSS feed first (works on cloud, avoids IP blocking) ─────
         if FEEDPARSER_AVAILABLE:
-            rss_url = f"{BASE_URL}/j?q={quote_plus(role)}&l={quote_plus(location)}&type=rss"
+            # For AU-wide searches, omit the `l` param — Jora's RSS doesn't
+            # always recognise "Australia" as a location value.
+            if location.lower() in ("australia", "all australia", ""):
+                rss_url = f"{BASE_URL}/j?q={quote_plus(role)}&type=rss"
+            else:
+                rss_url = f"{BASE_URL}/j?q={quote_plus(role)}&l={quote_plus(location)}&type=rss"
             try:
                 # Fetch with browser headers — feedparser's default user-agent is blocked
                 resp = _requests.get(rss_url, headers=_RSS_HEADERS, timeout=20)
+                logger.info(f"Jora RSS HTTP {resp.status_code} for '{role}'")
                 feed = feedparser.parse(resp.content)
                 if feed.entries:
                     logger.info(f"Jora RSS: {len(feed.entries)} entries for '{role}'")

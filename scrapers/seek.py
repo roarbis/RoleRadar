@@ -57,8 +57,10 @@ class SeekScraper(BaseScraper):
             "siteKey": "AU-Main",
             "where": seek_where,
             "page": 1,
+            "pageSize": 40,        # explicit page size — default may be very small
             "keywords": role,
-            "seekSelectAllPages": "true",
+            # seekSelectAllPages removed — not a real API param; was likely causing
+            # the API to return a meta-aggregation response with very few job items
             "sortMode": "ListedDate",
         }
         param_str = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
@@ -88,10 +90,13 @@ class SeekScraper(BaseScraper):
         # 'data' is the standard key; log top-level keys on miss so we can
         # adapt quickly if Seek changes their API response structure.
         job_list = data.get("data") or data.get("jobs") or data.get("results") or []
+        total_count = data.get("totalCount") or data.get("total") or "?"
+        logger.info(
+            f"Seek API: {len(job_list)} jobs in response "
+            f"(totalCount={total_count}) — keys: {list(data.keys())[:8]}"
+        )
         if not job_list:
-            logger.warning(
-                f"Seek: no jobs in response — top-level keys: {list(data.keys())[:10]}"
-            )
+            logger.warning(f"Seek: empty job list — raw response snippet: {str(data)[:300]}")
         return self._parse_jobs(job_list)
 
     def _parse_jobs(self, job_list: list) -> list:

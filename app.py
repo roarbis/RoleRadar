@@ -649,6 +649,28 @@ if run_clicked and roles and selected_sources:
         f"Raw totals — {summary}."
     )
 
+    # Per-source breakdown: raw scraped vs 0 / blocked
+    with st.expander("📊 Source breakdown", expanded=(len(filtered) < 5)):
+        _breakdown_rows = []
+        for _src in selected_sources:
+            _raw = source_results.get(_src, 0)
+            _err = source_errors.get(_src)
+            if _err:
+                _status = f"⚠️ error: {_err[:60]}"
+            elif _raw == 0:
+                _status = "❌ 0 jobs — may be blocked on this server"
+            else:
+                _status = f"✅ {_raw} raw jobs scraped"
+            _breakdown_rows.append({"Source": _src, "Result": _status})
+        import pandas as pd
+        st.dataframe(pd.DataFrame(_breakdown_rows), hide_index=True, use_container_width=True)
+        if any(source_results.get(s, 0) == 0 for s in selected_sources if s not in source_errors):
+            st.caption(
+                "💡 Sources showing 0 may be blocking searches from cloud server IPs. "
+                "LinkedIn and GradConnection tend to work best on Render. "
+                "Check Render's log tab for detailed error messages."
+            )
+
     if source_errors:
         with st.expander("⚠️ Source errors"):
             for src, err in source_errors.items():

@@ -61,7 +61,13 @@ class IndeedScraper(BaseScraper):
         return all_jobs
 
     def _search_role(self, role: str, location: str = "Australia") -> list:
-        url = f"{RSS_URL}?q={quote_plus(role)}&l={quote_plus(location)}&sort=date"
+        # For AU-wide searches, omit the `l` parameter entirely.
+        # au.indeed.com is already AU-specific, and `l=Australia` doesn't match
+        # Indeed's internal location database — it returns 0 results.
+        if location.lower() in ("australia", "all australia", ""):
+            url = f"{RSS_URL}?q={quote_plus(role)}&sort=date"
+        else:
+            url = f"{RSS_URL}?q={quote_plus(role)}&l={quote_plus(location)}&sort=date"
         logger.info(f"Indeed RSS: {url}")
 
         try:
