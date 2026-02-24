@@ -1,5 +1,5 @@
 """
-Job Hunter Australia — Streamlit Web App
+RoleRadar — Streamlit Web App
 Run with: streamlit run app.py
 """
 
@@ -179,13 +179,13 @@ def build_scraper_map(adzuna_id: str, adzuna_key: str) -> dict:
 # Page setup
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Job Hunter Australia",
-    page_icon="🔍",
+    page_title="RoleRadar",
+    page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("🔍 Job Hunter Australia")
+st.title("📡 RoleRadar")
 st.caption("Search multiple Australian job boards and track new listings automatically.")
 
 # ---------------------------------------------------------------------------
@@ -1095,7 +1095,7 @@ with tab_ai:
 with tab_about:
     st.markdown(
         """
-        ### Job Hunter Australia — v1.3
+        ### RoleRadar — v1.3
 
         **Job source status**
 

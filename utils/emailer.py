@@ -54,7 +54,7 @@ def send_job_digest(
         return False, f"Missing email settings: {', '.join(missing)}."
 
     subject = (
-        f"Job Hunter Australia — {len(jobs)} jobs — "
+        f"RoleRadar — {len(jobs)} jobs — "
         f"{datetime.now().strftime('%d %b %Y')}"
     )
 
@@ -130,14 +130,14 @@ def _build_html_table(jobs: list) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Job Hunter Australia — Job Digest</title>
+  <title>RoleRadar — Job Digest</title>
 </head>
 <body style="margin:0;padding:20px;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:1020px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.12);">
 
     <!-- Header -->
     <div style="background:#1f6feb;padding:28px 32px;">
-      <h1 style="color:#ffffff;margin:0;font-size:22px;">🔍 Job Hunter Australia</h1>
+      <h1 style="color:#ffffff;margin:0;font-size:22px;">📡 RoleRadar</h1>
       <p style="color:#9ecfff;margin:8px 0 0;font-size:14px;">
         {total} job listing{"s" if total != 1 else ""} &nbsp;·&nbsp; generated {now_str}
       </p>
@@ -166,7 +166,7 @@ def _build_html_table(jobs: list) -> str:
     <!-- Footer -->
     <div style="background:#f8f9fa;padding:14px 32px;border-top:1px solid #e0e0e0;">
       <p style="margin:0;font-size:12px;color:#888888;">
-        Sent by <strong>Job Hunter Australia</strong> &nbsp;·&nbsp;
+        Sent by <strong>RoleRadar</strong> &nbsp;·&nbsp;
         Data sourced from Seek, Indeed, Jora, LinkedIn &amp; more.
       </p>
     </div>

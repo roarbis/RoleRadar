@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: job-hunter-au
+    name: role-radar
     env: python
     plan: free
     region: singapore   # closest to Australia — change to: oregon, ohio, frankfurt
