@@ -1,0 +1,12 @@
+[server]
+# Required for hosting behind a reverse proxy (Render, Railway, etc.)
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+# Remove this section to use Streamlit's default theme picker
+# base = "light"

@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# Job Hunter Australia — .gitignore
+# ---------------------------------------------------------------------------
+
+# Data directory — contains the SQLite DB, uploaded resumes,
+# config.json (has API keys / email passwords), and scores.
+# NEVER commit this to a public repo.
+data/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments (if someone creates one locally)
+venv/
+.venv/
+env/
+
+# Backup zips
+*.zip
+
+# Streamlit secrets (if used)
+.streamlit/secrets.toml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Windows device/null files (created by pip on some Windows setups)
+nul
+
+# Editor
+.vscode/
+.idea/
+*.swp
