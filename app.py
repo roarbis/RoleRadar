@@ -1199,15 +1199,22 @@ with tab_about:
 
         **Job source status**
 
-        | Source | Status | Notes |
-        |---|---|---|
-        | **Seek** | ✅ Working | AU's #1 job board — internal JSON API |
-        | **Indeed** | ✅ Working | RSS feed — no location filter (AU-specific domain) |
-        | **Jora** | ⚠️ Cloud limited | RSS attempted; falls back to HTML (may get 403 on Render) |
-        | **LinkedIn** | ✅ Working | Public search, scoped to Australia, ~60 results/query |
-        | **GradConnection** | ✅ Working | AU board, grad + professional roles |
-        | **Adzuna** | 🔑 Free API key | Extra source — aggregates many boards |
-        | **CareerOne** | 🚫 Needs Playwright | Full JS rendering required (coming later) |
+        **Job source status**
+
+        | Source | Local | Cloud (Render) | Method |
+        |---|---|---|---|
+        | **LinkedIn** | ✅ ~60/query | ✅ ~60/query | Public HTML |
+        | **GradConnection** | ✅ ~20/query | ✅ ~20/query | Public HTML |
+        | **Seek** | ✅ ~20/query | ⚠️ 2–5/query | curl_cffi → JSON API |
+        | **Indeed** | ✅ ~16/query | ❌ Blocked | curl_cffi → HTML |
+        | **Jora** | ✅ ~15/query | ❌ 403 | curl_cffi → HTML |
+        | **Adzuna** | ✅ API | ✅ API | Free API key (recommended for cloud) |
+        | **CareerOne** | 🚫 — | 🚫 — | Needs Playwright (coming later) |
+
+        **⚡ Running on cloud (Render)?**
+        Seek, Indeed, and Jora block datacenter IP ranges. For best results
+        on cloud hosting, **enable Adzuna** (free API, works everywhere) and
+        rely on LinkedIn + GradConnection. Running locally gives full coverage.
 
         **Getting Adzuna (recommended)**
         1. Register free at [developer.adzuna.com](https://developer.adzuna.com/signup)
