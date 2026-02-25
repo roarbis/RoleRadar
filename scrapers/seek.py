@@ -51,50 +51,61 @@ class SeekScraper(BaseScraper):
         return all_jobs
 
     def _search_role(self, role: str, location: str = "Australia") -> list:
-        # Location removed from API params — seek.com.au is AU-specific and
-        # adding a where= value was reducing results significantly.
-        # Location filtering can be done in the UI after results are returned.
-        params = {
-            "siteKey": "AU-Main",
-            "page": 1,
-            "keywords": role,
-            "sortMode": "ListedDate",
-        }
-        param_str = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
-        url = f"{API_URL}?{param_str}"
+        # Scrape up to 3 pages with delays to avoid throttling.
+        # Seek returns ~22 jobs per page; 3 pages ≈ 60 jobs.
+        all_jobs = []
+        max_pages = 3
 
-        try:
-            response = cf_requests.get(
-                url,
-                headers=API_HEADERS,
-                impersonate="chrome124",
-                timeout=30,
+        for page in range(1, max_pages + 1):
+            params = {
+                "siteKey": "AU-Main",
+                "page": page,
+                "keywords": role,
+                "sortMode": "ListedDate",
+            }
+            param_str = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
+            url = f"{API_URL}?{param_str}"
+
+            try:
+                response = cf_requests.get(
+                    url,
+                    headers=API_HEADERS,
+                    impersonate="chrome124",
+                    timeout=30,
+                )
+            except Exception as e:
+                logger.error(f"Seek API request failed (page {page}): {e}")
+                break
+
+            if response.status_code != 200:
+                logger.warning(f"Seek API returned HTTP {response.status_code} on page {page}")
+                break
+
+            try:
+                data = response.json()
+            except Exception as e:
+                logger.error(f"Seek: failed to parse JSON (page {page}): {e}")
+                break
+
+            job_list = data.get("data") or data.get("jobs") or data.get("results") or []
+            total_count = data.get("totalCount") or data.get("total") or "?"
+            logger.info(
+                f"Seek API page {page}: {len(job_list)} jobs "
+                f"(totalCount={total_count})"
             )
-        except Exception as e:
-            logger.error(f"Seek API request failed: {e}")
-            return []
 
-        if response.status_code != 200:
-            logger.warning(f"Seek API returned HTTP {response.status_code}")
-            return []
+            if not job_list:
+                logger.info(f"Seek: no more results after page {page - 1}")
+                break
 
-        try:
-            data = response.json()
-        except Exception as e:
-            logger.error(f"Seek: failed to parse JSON: {e}")
-            return []
+            all_jobs.extend(self._parse_jobs(job_list))
 
-        # 'data' is the standard key; log top-level keys on miss so we can
-        # adapt quickly if Seek changes their API response structure.
-        job_list = data.get("data") or data.get("jobs") or data.get("results") or []
-        total_count = data.get("totalCount") or data.get("total") or "?"
-        logger.info(
-            f"Seek API: {len(job_list)} jobs in response "
-            f"(totalCount={total_count}) — keys: {list(data.keys())[:8]}"
-        )
-        if not job_list:
-            logger.warning(f"Seek: empty job list — raw response snippet: {str(data)[:300]}")
-        return self._parse_jobs(job_list)
+            # Don't sleep after the last page
+            if page < max_pages and job_list:
+                time.sleep(3)
+
+        logger.info(f"Seek: {len(all_jobs)} total jobs across {min(page, max_pages)} pages for '{role}'")
+        return all_jobs
 
     def _parse_jobs(self, job_list: list) -> list:
         jobs = []

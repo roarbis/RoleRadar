@@ -36,7 +36,7 @@ class AdzunaScraper(BaseScraper):
     def is_configured(self) -> bool:
         return bool(self.app_id and self.app_key)
 
-    def search(self, roles: list) -> list:
+    def search(self, roles: list, location: str = "Australia") -> list:
         if not self.is_configured():
             logger.warning("Adzuna: API credentials not set — skipping.")
             return []

@@ -19,13 +19,20 @@ RELATED_ROLES: dict = {
         "program manager",
         "project lead",
         "delivery manager",
+        "delivery lead",
+        "technical delivery lead",
         "project coordinator",
+        "project officer",
+        "project administrator",
         "pmo",
         "project director",
         "it project manager",
         "technical project manager",
         "agile project manager",
         "project specialist",
+        "project consultant",
+        "engagement manager",
+        "implementation manager",
     ],
     "program manager": [
         "project manager",
@@ -193,7 +200,7 @@ def matches_role(job_title: str, role: str, match_type: str = "exact") -> bool:
     Return True if job_title is considered a match for role.
 
     match_type='exact'   : role must appear as a substring in title (case-insensitive)
-    match_type='similar' : also checks related role names
+    match_type='similar' : also checks related role names AND word-level matching
     """
     title_lower = _normalize(job_title)
     role_lower = _normalize(role)
@@ -208,8 +215,32 @@ def matches_role(job_title: str, role: str, match_type: str = "exact") -> bool:
         return True
 
     if match_type == "similar":
+        # Check related/alternative role titles
         for alt in get_related_roles(role):
             if _normalize(alt) in title_lower:
+                return True
+
+        # Word-level matching: if ALL significant words (4+ chars) from the
+        # role appear anywhere in the title, it's a match.
+        # e.g. "project manager" matches "Project Risk Manager | Defence"
+        #       because both "project" and "manager" are in the title.
+        role_words = [w for w in role_lower.split() if len(w) >= 4]
+        if role_words and all(w in title_lower for w in role_words):
+            return True
+
+        # Partial word match: if ANY significant role word appears in
+        # the title AND the title also contains a management/leadership
+        # keyword, count it. This catches titles like "Project Engineer",
+        # "Project Coordinator", "Project Officer" etc.
+        _mgmt_keywords = {
+            "manager", "lead", "director", "coordinator", "officer",
+            "head", "chief", "specialist", "consultant", "analyst",
+            "administrator", "supervisor", "executive", "partner",
+            "architect", "advisor", "engineer", "associate",
+        }
+        title_words = set(title_lower.split())
+        for rw in role_words:
+            if rw in title_lower and title_words & _mgmt_keywords:
                 return True
 
     return False
