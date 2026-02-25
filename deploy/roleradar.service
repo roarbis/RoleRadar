@@ -1,0 +1,48 @@
+# ── RoleRadar — systemd service (non-Docker option) ─────────────────────────
+# Install:
+#   sudo cp deploy/roleradar.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable roleradar
+#   sudo systemctl start roleradar
+#   sudo systemctl status roleradar
+#
+# Logs:
+#   sudo journalctl -u roleradar -f
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=RoleRadar — Australian Job Scraper
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=roleradar                         # dedicated user (created by setup.sh)
+Group=roleradar
+WorkingDirectory=/opt/roleradar
+
+# Use the virtual environment's streamlit binary
+ExecStart=/opt/roleradar/venv/bin/streamlit run app.py \
+    --server.port=8501 \
+    --server.address=127.0.0.1 \
+    --server.headless=true \
+    --browser.gatherUsageStats=false
+
+# Restart automatically on crash
+Restart=on-failure
+RestartSec=10s
+
+# Environment — set the Python path so imports work
+Environment="PYTHONPATH=/opt/roleradar"
+Environment="STREAMLIT_SERVER_HEADLESS=true"
+
+# Resource limits (optional — prevents runaway memory)
+# MemoryMax=512M
+
+# Output to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=roleradar
+
+[Install]
+WantedBy=multi-user.target

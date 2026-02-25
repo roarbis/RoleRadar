@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Job Hunter Australia — .gitignore
+# RoleRadar — .gitignore
 # ---------------------------------------------------------------------------
 
 # Data directory — contains the SQLite DB, uploaded resumes,
@@ -35,3 +35,11 @@ nul
 .vscode/
 .idea/
 *.swp
+
+# Docker
+.env
+.env.local
+
+# Logs
+*.log
+logs/
