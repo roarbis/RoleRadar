@@ -51,16 +51,13 @@ class SeekScraper(BaseScraper):
         return all_jobs
 
     def _search_role(self, role: str, location: str = "Australia") -> list:
-        # Seek accepts plain location strings — "All Australia", "Melbourne VIC", etc.
-        seek_where = "All Australia" if location.lower() in ("australia", "all australia", "") else location
+        # Location removed from API params — seek.com.au is AU-specific and
+        # adding a where= value was reducing results significantly.
+        # Location filtering can be done in the UI after results are returned.
         params = {
             "siteKey": "AU-Main",
-            "where": seek_where,
             "page": 1,
-            "pageSize": 40,        # explicit page size — default may be very small
             "keywords": role,
-            # seekSelectAllPages removed — not a real API param; was likely causing
-            # the API to return a meta-aggregation response with very few job items
             "sortMode": "ListedDate",
         }
         param_str = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())

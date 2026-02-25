@@ -54,10 +54,13 @@ class LinkedInScraper(BaseScraper):
         return all_jobs
 
     def _search_role(self, role: str, location: str = "Australia") -> list:
+        # Always scope LinkedIn to Australia — without a country the API returns
+        # global results (US, UK, etc.). User-supplied location ignored for now;
+        # location filtering happens in the UI after results are returned.
         url = (
             f"{self.BASE_URL}/jobs/search/"
             f"?keywords={quote_plus(role)}"
-            f"&location={quote_plus(location)}"
+            f"&location=Australia"
             f"&f_TPR=r604800"   # last 7 days
             f"&sortBy=DD"       # newest first
         )

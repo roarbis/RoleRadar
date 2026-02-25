@@ -33,7 +33,6 @@ class GradConnectionScraper(BaseScraper):
 
     def _search_role(self, role: str, location: str = "Australia") -> list:
         url = f"{self.BASE_URL}/jobs/?q={quote_plus(role)}"
-        self._location_filter = location
         try:
             response = self.session.get(url, timeout=30)
         except Exception as e:
@@ -49,7 +48,6 @@ class GradConnectionScraper(BaseScraper):
 
     def _parse_html(self, soup: BeautifulSoup) -> list:
         jobs = []
-        location_filter = getattr(self, "_location_filter", "Australia").lower()
 
         # ── Card detection: try multiple selector patterns ───────────────────
         # GradConnection has redesigned a few times; fall through each strategy.
@@ -121,11 +119,6 @@ class GradConnectionScraper(BaseScraper):
                 location = location_el.get_text(strip=True) if location_el else "Australia"
                 if not location:
                     location = "Australia"
-
-                # ── Location post-filter ───────────────────────────────────
-                if location_filter not in ("australia", "all australia", ""):
-                    if location_filter not in location.lower():
-                        continue
 
                 # ── Description ────────────────────────────────────────────
                 discipline_el = card.find(

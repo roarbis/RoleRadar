@@ -1201,10 +1201,10 @@ with tab_about:
 
         | Source | Status | Notes |
         |---|---|---|
-        | **Seek** | ✅ Working | AU's #1 job board — API via curl_cffi |
-        | **Indeed** | ✅ Working | Major global board — HTML via curl_cffi |
-        | **Jora** | ✅ Working | AU aggregator — HTML via curl_cffi |
-        | **LinkedIn** | ✅ Working | Public search, up to 60 results/query |
+        | **Seek** | ✅ Working | AU's #1 job board — internal JSON API |
+        | **Indeed** | ✅ Working | RSS feed — no location filter (AU-specific domain) |
+        | **Jora** | ⚠️ Cloud limited | RSS attempted; falls back to HTML (may get 403 on Render) |
+        | **LinkedIn** | ✅ Working | Public search, scoped to Australia, ~60 results/query |
         | **GradConnection** | ✅ Working | AU board, grad + professional roles |
         | **Adzuna** | 🔑 Free API key | Extra source — aggregates many boards |
         | **CareerOne** | 🚫 Needs Playwright | Full JS rendering required (coming later) |
