@@ -7,6 +7,7 @@ Usage in app.py:
 """
 
 import streamlit as st
+from html import escape as _esc
 
 # ── Source brand colours ───────────────────────────────────────────────────
 SOURCE_COLORS: dict[str, dict] = {
@@ -35,18 +36,22 @@ def get_source_badge_html(source: str) -> str:
 
 
 def render_job_card(job, score_data: dict | None = None) -> str:
-    """Return the full HTML string for one job card."""
-    title    = (job.title    or "Untitled").strip()
-    company  = (job.company  or "Unknown").strip()
-    location = (job.location or "").strip()
-    salary   = (job.salary   or "").strip()
-    source   = (job.source   or "").strip()
-    url      = (job.url      or "").strip()
+    """Return the full HTML string for one job card.
+    All user data is HTML-escaped to prevent injection / broken layouts.
+    All styles are inline to guarantee they apply regardless of Streamlit
+    CSS scoping behaviour.
+    """
+    # Escape every piece of user-supplied text
+    title    = _esc((job.title    or "Untitled").strip())
+    company  = _esc((job.company  or "Unknown").strip())
+    location = _esc((job.location or "").strip())
+    salary   = _esc((job.salary   or "").strip())
+    source   = (job.source or "").strip()          # used only for badge lookup
+    url      = (job.url    or "").strip()           # used in href, not displayed
     raw_desc = (job.description or "").strip()
-    desc     = (raw_desc[:160] + "…") if len(raw_desc) > 160 else raw_desc
-    date_lbl = ""
-    if job.date_posted:
-        date_lbl = str(job.date_posted)[:10]
+    raw_desc = raw_desc[:160] + ("…" if len(raw_desc) > 160 else "")
+    desc     = _esc(raw_desc)
+    date_lbl = _esc(str(job.date_posted)[:10]) if job.date_posted else ""
 
     source_badge = get_source_badge_html(source)
 
@@ -54,7 +59,7 @@ def render_job_card(job, score_data: dict | None = None) -> str:
     score_html = ""
     if score_data and score_data.get("score", -1) >= 0:
         s = score_data["score"]
-        reason = (score_data.get("reason") or "")[:140]
+        reason = _esc((score_data.get("reason") or "")[:140])
         if s >= 80:
             sc, bg, bd = "#057642", "#DCFCE7", "#86EFAC"
         elif s >= 60:
@@ -64,9 +69,8 @@ def render_job_card(job, score_data: dict | None = None) -> str:
         else:
             sc, bg, bd = "#64748B", "#F8FAFC", "#CBD5E1"
         score_html = (
-            f'<span title="{reason}" style="'
-            f'background:{bg};color:{sc};border:1.5px solid {bd};'
-            f'width:36px;height:36px;border-radius:50%;'
+            f'<span title="{reason}" style="background:{bg};color:{sc};'
+            f'border:1.5px solid {bd};width:36px;height:36px;border-radius:50%;'
             f'display:inline-flex;align-items:center;justify-content:center;'
             f'font-weight:700;font-size:0.82rem;flex-shrink:0;cursor:help">{s}</span>'
         )
@@ -74,60 +78,76 @@ def render_job_card(job, score_data: dict | None = None) -> str:
     # ── Meta row ───────────────────────────────────────────────────────
     meta_items = []
     if location:
-        meta_items.append(f'<span title="Location">📍 {location}</span>')
+        meta_items.append(f'<span>📍 {location}</span>')
     if salary:
-        meta_items.append(f'<span title="Salary">💰 {salary}</span>')
+        meta_items.append(f'<span>💰 {salary}</span>')
     if date_lbl:
-        meta_items.append(f'<span title="Posted">🗓 {date_lbl}</span>')
+        meta_items.append(f'<span>🗓 {date_lbl}</span>')
     meta_html = ""
     if meta_items:
         meta_html = (
             '<div style="display:flex;flex-wrap:wrap;gap:0.8rem;'
-            'font-size:0.8rem;color:#555;margin:0.35rem 0 0.55rem">'
+            'font-size:0.8rem;color:#6B7280;margin:0.35rem 0 0.5rem 0">'
             + "".join(meta_items) + "</div>"
         )
 
     # ── Description snippet ────────────────────────────────────────────
-    desc_html = ""
-    if desc:
-        desc_html = (
-            f'<p style="font-size:0.81rem;color:#6B7280;margin:0 0 0.6rem;'
-            f'line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;'
-            f'-webkit-box-orient:vertical;overflow:hidden">{desc}</p>'
-        )
+    desc_html = (
+        f'<div style="font-size:0.8rem;color:#6B7280;line-height:1.5;'
+        f'margin-bottom:0.6rem;overflow:hidden;'
+        f'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">'
+        f'{desc}</div>'
+    ) if desc else ""
 
     # ── Action button ──────────────────────────────────────────────────
-    if url:
-        action = (
-            f'<a href="{url}" target="_blank" rel="noopener" '
-            f'style="display:inline-block;background:#0A66C2;color:#fff;'
-            f'text-decoration:none;padding:6px 20px;border-radius:20px;'
-            f'font-size:0.8rem;font-weight:600;transition:background 0.2s;'
-            f'letter-spacing:0.1px">View Job →</a>'
-        )
-    else:
-        action = (
-            '<span style="font-size:0.8rem;color:#94A3B8;font-style:italic">'
-            'No link</span>'
-        )
+    safe_url = _esc(url)
+    action = (
+        f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer" '
+        f'style="display:inline-block;background:#0A66C2;color:#fff !important;'
+        f'text-decoration:none;padding:6px 20px;border-radius:20px;'
+        f'font-size:0.8rem;font-weight:600;letter-spacing:0.1px;'
+        f'white-space:nowrap">View Job →</a>'
+    ) if url else (
+        '<span style="font-size:0.8rem;color:#94A3B8;font-style:italic">No link</span>'
+    )
 
-    return f"""<div class="rr-card">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem">
-    <div style="flex:1;min-width:0">
-      <div class="rr-job-title" title="{title}">{title}</div>
-      <div class="rr-job-company">{company}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;padding-top:2px">
-      {source_badge}
-      {score_html}
-    </div>
-  </div>
-  {meta_html}
-  {desc_html}
-  <div style="display:flex;align-items:center;gap:0.75rem">
-    {action}
-  </div>
-</div>"""
+    # Card — all layout is inline to guarantee rendering in Streamlit markdown
+    return (
+        '<div style="background:#fff;border:1px solid #E2E0DB;border-radius:12px;'
+        'padding:1.1rem 1.4rem;margin-bottom:0.65rem;'
+        'box-shadow:0 1px 3px rgba(0,0,0,0.07);">'
+
+        # Header row: title+company on left, badges on right
+        '<div style="display:flex;justify-content:space-between;'
+        'align-items:flex-start;gap:0.75rem;width:100%">'
+
+        # Left column — title + company (overflow-safe)
+        '<div style="flex:1 1 auto;overflow:hidden;min-width:0">'
+        f'<div style="font-size:1.02rem;font-weight:700;color:#0F172A;'
+        f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
+        f'max-width:100%" title="{title}">{title}</div>'
+        f'<div style="font-size:0.87rem;font-weight:500;color:#374151;'
+        f'margin-top:0.15rem;overflow:hidden;text-overflow:ellipsis;'
+        f'white-space:nowrap">{company}</div>'
+        '</div>'
+
+        # Right column — source badge + score (never shrinks)
+        '<div style="display:flex;align-items:center;gap:0.4rem;'
+        'flex-shrink:0;flex:0 0 auto;padding-top:2px">'
+        f'{source_badge}{score_html}'
+        '</div>'
+        '</div>'  # end header row
+
+        f'{meta_html}'
+        f'{desc_html}'
+
+        # Footer row — action button
+        '<div style="display:flex;align-items:center">'
+        f'{action}'
+        '</div>'
+
+        '</div>'  # end card
+    )
 
 
 def page_header(subtitle: str = "Scan every Australian job board. Find your next role.") -> None:
