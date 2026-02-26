@@ -40,6 +40,11 @@ from utils.ai_provider import (
     GROQ_MODELS, GEMINI_MODELS,
 )
 from utils.ai_scorer import score_job, tailor_resume_suggestions, customize_cover_letter
+from utils.ui_components import (
+    inject_css, page_header, stat_cards,
+    render_job_card, empty_state, section_header,
+    get_source_badge_html,
+)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -186,8 +191,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("📡 RoleRadar")
-st.caption("Search multiple Australian job boards and track new listings automatically.")
+# Inject full LinkedIn-inspired theme immediately after page config
+inject_css()
+
+page_header()
 
 # ---------------------------------------------------------------------------
 # Session state — initialise once per session
@@ -512,27 +519,22 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 last_run = get_last_run_info()
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    if last_run:
-        try:
-            dt = datetime.fromisoformat(last_run["run_at"])
-            label = dt.strftime("%d %b %Y  %H:%M")
-        except Exception:
-            label = str(last_run["run_at"])
-        st.metric("Last Run", label)
-    else:
-        st.metric("Last Run", "Never")
+if last_run:
+    try:
+        dt = datetime.fromisoformat(last_run["run_at"])
+        _last_run_label = dt.strftime("%d %b  %H:%M")
+    except Exception:
+        _last_run_label = str(last_run["run_at"])[:16]
+else:
+    _last_run_label = "Never"
 
-with col2:
-    st.metric("Jobs Found (last run)", last_run["jobs_found"] if last_run else "—")
-
-with col3:
-    st.metric("New Jobs (last run)", last_run["jobs_new"] if last_run else "—")
-
-with col4:
-    total_in_db = len(get_recent_jobs(limit=9999))
-    st.metric("Total in Database", total_in_db)
+_total_in_db = len(get_recent_jobs(limit=9999))
+stat_cards(
+    last_run_label=_last_run_label,
+    jobs_found=last_run["jobs_found"] if last_run else "—",
+    jobs_new=last_run["jobs_new"] if last_run else "—",
+    total_in_db=_total_in_db,
+)
 
 st.divider()
 
@@ -554,7 +556,17 @@ if not roles:
 
 recent_all = get_recent_jobs(limit=1000)
 
-col_run, col_export, col_email = st.columns(3)
+# ── Action bar ──────────────────────────────────────────────────────────────
+st.markdown("""
+<div style="background:#fff;border:1px solid #E2E0DB;border-radius:12px;
+            padding:1rem 1.25rem;margin-bottom:0.75rem;
+            box-shadow:0 1px 3px rgba(0,0,0,0.07)">
+  <div style="font-size:0.72rem;font-weight:600;color:#6B7280;
+              text-transform:uppercase;letter-spacing:0.6px;margin-bottom:0.6rem">
+    Quick Actions
+  </div>""", unsafe_allow_html=True)
+
+col_run, col_export, col_email, col_spacer = st.columns([2, 2, 2, 1])
 
 with col_run:
     run_clicked = st.button(
@@ -562,32 +574,36 @@ with col_run:
         type="primary",
         use_container_width=True,
         disabled=(not roles or not selected_sources),
+        help="Scan all selected job boards for new listings" if roles else "Add a role in the sidebar first",
     )
 
 with col_export:
     csv_bytes = get_csv_as_bytes(recent_all) if recent_all else None
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     st.download_button(
-        label="📥  Export to CSV",
+        label="📥  Export CSV",
         data=csv_bytes or b"",
-        file_name=f"jobs_{timestamp_str}.csv",
+        file_name=f"roleradar_{timestamp_str}.csv",
         mime="text/csv",
         use_container_width=True,
         disabled=(not recent_all),
+        help="Download all current results as a spreadsheet",
     )
 
 with col_email:
     email_configured = bool(email_sender and email_password and email_recipient)
     send_email_clicked = st.button(
-        "📧  Send Email Digest",
+        "📧  Email Digest",
         use_container_width=True,
         disabled=(not email_configured or not recent_all),
         help=(
-            "Sends all current jobs to the configured recipient."
+            "Send all current jobs to your inbox"
             if email_configured
-            else "Add email settings in the sidebar to enable this."
+            else "Configure email settings in the sidebar first"
         ),
     )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Run scraper
@@ -700,7 +716,7 @@ if send_email_clicked:
 # ---------------------------------------------------------------------------
 # Source Status Tracker
 # ---------------------------------------------------------------------------
-with st.expander("🔌 Source Status", expanded=False):
+with st.expander("🔌  Source Status  —  connectivity check per job board", expanded=False):
     _health_col, _info_col = st.columns([1, 3])
     with _health_col:
         _check_btn = st.button("🔄 Check Now", use_container_width=True,
@@ -770,55 +786,126 @@ with st.expander("🔌 Source Status", expanded=False):
 st.subheader("Results")
 
 tab_all, tab_by_source, tab_ai, tab_about = st.tabs(
-    ["All Jobs", "Filter by Source", "🤖 AI Tools", "About"]
+    ["📋 All Jobs", "🔍 By Source", "🤖 AI Tools", "ℹ️ About"]
 )
 
 with tab_all:
     jobs = get_recent_jobs(limit=500)
     if not jobs:
-        st.info("No jobs yet — click **▶ Run Now** to start searching.")
+        empty_state()
     else:
-        search_filter = st.text_input(
-            "Filter results:",
-            placeholder="Search by title, company, location...",
-        )
+        # ── Filter bar + view toggle ─────────────────────────────────────
+        _fc, _tc = st.columns([4, 1])
+        with _fc:
+            search_filter = st.text_input(
+                "filter_all",
+                placeholder="🔍  Filter by title, company, location, source…",
+                label_visibility="collapsed",
+            )
+        with _tc:
+            st.markdown('<div class="rr-toggle-wrap">', unsafe_allow_html=True)
+            view_mode = st.radio(
+                "view", ["🃏 Cards", "📋 Table"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="view_toggle_all",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Apply text filter ────────────────────────────────────────────
         df = jobs_to_dataframe(jobs)
         if search_filter:
             mask = df.apply(
                 lambda col: col.astype(str).str.contains(search_filter, case=False, na=False)
             ).any(axis=1)
             df = df[mask]
+            _sf_lower = search_filter.lower()
+            jobs_display = [
+                j for j in jobs
+                if any(
+                    _sf_lower in str(getattr(j, attr, "") or "").lower()
+                    for attr in ("title", "company", "location", "source", "description")
+                )
+            ]
+        else:
+            jobs_display = jobs
 
-        st.caption(f"Showing {len(df)} jobs")
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True,
-            height=520,
-            column_config={
-                "Url": st.column_config.LinkColumn("URL", display_text="View Job"),
-            },
-        )
+        st.caption(f"Showing **{len(jobs_display)}** jobs")
+
+        # ── Card view ────────────────────────────────────────────────────
+        if view_mode == "🃏 Cards":
+            _scores = st.session_state.get("job_scores", {})
+            for _job in jobs_display[:300]:
+                _key = _job.url or f"{_job.title}|{_job.company}"
+                st.markdown(
+                    render_job_card(_job, _scores.get(_key)),
+                    unsafe_allow_html=True,
+                )
+
+        # ── Table view ───────────────────────────────────────────────────
+        else:
+            st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                height=540,
+                column_config={
+                    "Url": st.column_config.LinkColumn("URL", display_text="View Job"),
+                },
+            )
 
 with tab_by_source:
     sources_in_db = get_all_sources()
     if not sources_in_db:
-        st.info("Run a search first.")
+        empty_state("No jobs yet", "Run a search to populate results by source.")
     else:
-        selected_src = st.selectbox("Source:", ["All"] + sorted(sources_in_db))
+        _sc1, _sc2 = st.columns([3, 1])
+        with _sc1:
+            selected_src = st.selectbox(
+                "Source:",
+                ["All"] + sorted(sources_in_db),
+                label_visibility="collapsed",
+            )
+        with _sc2:
+            st.markdown('<div class="rr-toggle-wrap">', unsafe_allow_html=True)
+            src_view = st.radio(
+                "src_view", ["🃏 Cards", "📋 Table"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="view_toggle_src",
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
         src_filter = None if selected_src == "All" else selected_src
         src_jobs = get_recent_jobs(limit=500, source_filter=src_filter)
         df_src = jobs_to_dataframe(src_jobs)
-        st.caption(f"{len(df_src)} jobs from {selected_src}")
-        st.dataframe(
-            df_src,
-            use_container_width=True,
-            hide_index=True,
-            height=520,
-            column_config={
-                "Url": st.column_config.LinkColumn("URL", display_text="View Job"),
-            },
-        )
+
+        # Source header with badge
+        if selected_src != "All":
+            badge = get_source_badge_html(selected_src)
+            st.markdown(
+                f'<div style="margin:0.5rem 0 0.75rem;display:flex;align-items:center;gap:0.5rem">'
+                f'<span style="font-size:0.85rem;color:#6B7280">Showing jobs from</span>'
+                f'{badge}</div>',
+                unsafe_allow_html=True,
+            )
+        st.caption(f"**{len(src_jobs)}** jobs from {selected_src}")
+
+        if src_view == "🃏 Cards":
+            _scores_src = st.session_state.get("job_scores", {})
+            for _j in src_jobs[:300]:
+                _k = _j.url or f"{_j.title}|{_j.company}"
+                st.markdown(render_job_card(_j, _scores_src.get(_k)), unsafe_allow_html=True)
+        else:
+            st.dataframe(
+                df_src,
+                use_container_width=True,
+                hide_index=True,
+                height=520,
+                column_config={
+                    "Url": st.column_config.LinkColumn("URL", display_text="View Job"),
+                },
+            )
 
 with tab_ai:
     # ── Helper: build provider kwargs from sidebar config ──────────────────

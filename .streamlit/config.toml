@@ -1,5 +1,5 @@
 [server]
-# Required for hosting behind a reverse proxy (Render, Railway, etc.)
+# Required for hosting behind a reverse proxy (Render, nginx, etc.)
 headless = true
 enableCORS = false
 enableXsrfProtection = false
@@ -8,5 +8,11 @@ enableXsrfProtection = false
 gatherUsageStats = false
 
 [theme]
-# Remove this section to use Streamlit's default theme picker
-# base = "light"
+# LinkedIn-inspired professional light theme
+# Streamlit base tokens — fine-grained overrides live in utils/ui_components.py CSS
+base                     = "light"
+primaryColor             = "#0A66C2"
+backgroundColor          = "#F3F2EE"
+secondaryBackgroundColor = "#FFFFFF"
+textColor                = "#0F172A"
+font                     = "sans serif"
